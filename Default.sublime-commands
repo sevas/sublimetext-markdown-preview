@@ -17,5 +17,12 @@
         "caption": "Markdown Preview: open Markdown Cheat sheet",
         "command": "markdown_cheatsheet",
         "args": {}
+    },
+    {
+        "caption": "Markdown Preview: render and view in Browser",
+        "command": "markdown_preview",
+        "args": {
+            "target": "render_and_view"
+        }
     }
 ]

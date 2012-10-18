@@ -13,9 +13,16 @@ settings = sublime.load_settings('MarkdownPreview.sublime-settings')
 
 def getTempMarkdownPreviewPath(view):
     " return a permanent full path of the temp markdown preview file "
-    tmp_filename = '%s.html' % view.id()
+    tmp_filename = '%s.html' %  view.id()
     tmp_fullpath = os.path.join(tempfile.gettempdir(), tmp_filename)
-    return tmp_fullpath
+
+    return tmp_filename
+
+
+def getFinalMarkdownPreviewPath(view):
+    " return a permanent full path of the temp markdown preview file "
+    tmp_filename = '%s.html' %  os.path.splitext(view.file_name())[0]
+    return tmp_filename
 
 
 class MarkdownPreviewListener(sublime_plugin.EventListener):
@@ -85,6 +92,7 @@ class MarkdownPreviewCommand(sublime_plugin.TextCommand):
             encoding = 'windows-1252'
         contents = self.view.substr(region)
 
+
         config_parser = settings.get('parser')
 
         markdown_html = u'cannot convert markdown'
@@ -106,8 +114,9 @@ class MarkdownPreviewCommand(sublime_plugin.TextCommand):
         else:
             # convert the markdown
             markdown_html = markdown2.markdown(contents, extras=['footnotes', 'toc', 'fenced-code-blocks', 'cuddled-lists', 'code-friendly'])
-            # postprocess the html
-            markdown_html = self.postprocessor(markdown_html)
+            if target=='browser':
+                # postprocess the html
+                markdown_html = self.postprocessor(markdown_html)
 
         # check if LiveReload ST2 extension installed
         livereload_installed = ('LiveReload' in os.listdir(sublime.packages_path()))
@@ -122,14 +131,18 @@ class MarkdownPreviewCommand(sublime_plugin.TextCommand):
         html_contents += markdown_html
         html_contents += '</body>'
 
-        if target in ['disk', 'browser']:
+        if target in ['disk', 'browser', 'render_and_view']:
             # update output html file
-            tmp_fullpath = getTempMarkdownPreviewPath(self.view)
+            if target in ['disk', 'browser']:
+                tmp_fullpath = getTempMarkdownPreviewPath(self.view)
+            elif target in ['render_and_view']:
+                tmp_fullpath = getFinalMarkdownPreviewPath(self.view)
+
             tmp_html = open(tmp_fullpath, 'w')
             tmp_html.write(html_contents.encode(encoding))
             tmp_html.close()
             # todo : livereload ?
-            if target == 'browser':
+            if target in ['browser', 'render_and_view']:
                 config_browser = settings.get('browser')
                 if config_browser and config_browser != 'default':
                     cmd = '"%s" %s' % (config_browser, tmp_fullpath)
@@ -143,7 +156,10 @@ class MarkdownPreviewCommand(sublime_plugin.TextCommand):
                         sublime.status_message('Markdown preview launched in %s' % config_browser)
                 else:
                     desktop.open(tmp_fullpath)
-                    sublime.status_message('Markdown preview launched in default html viewer')
+                    if target == 'browser':
+                        sublime.status_message('Markdown preview launched in default html viewer')
+                    elif target == 'render_and_view':
+                        sublime.status_message('Markdown rendered to %s and launched in default html viewer' % tmp_fullpath)
         elif target == 'sublime':
             new_view = self.view.window().new_file()
             new_edit = new_view.begin_edit()
